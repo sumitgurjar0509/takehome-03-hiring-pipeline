@@ -20,7 +20,7 @@ from sqlalchemy.orm import sessionmaker
 from app.auth import hash_password
 from app.database import Base, get_db
 from app.main import app
-from app.models import User, UserRole
+from app.models import JobOpening, OpeningStatus, User, UserRole
 
 TEST_DATABASE_URL = os.environ["DATABASE_URL"]
 
@@ -92,6 +92,34 @@ def recruiter(make_user):
 @pytest.fixture()
 def interviewer(make_user):
     return make_user(email="interviewer@example.com", role=UserRole.INTERVIEWER)
+
+
+@pytest.fixture()
+def make_opening(db_session, recruiter):
+    """Factory fixture: make_opening(title=..., archived=..., ...) -> JobOpening"""
+
+    def _make_opening(
+        title: str = "Software Engineer",
+        department: str = "Engineering",
+        description: str = "Build things.",
+        status: OpeningStatus = OpeningStatus.OPEN,
+        archived: bool = False,
+        created_by: User | None = None,
+    ) -> JobOpening:
+        opening = JobOpening(
+            title=title,
+            department=department,
+            description=description,
+            status=status,
+            archived=archived,
+            created_by_id=(created_by or recruiter).id,
+        )
+        db_session.add(opening)
+        db_session.commit()
+        db_session.refresh(opening)
+        return opening
+
+    return _make_opening
 
 
 def auth_headers(client: TestClient, email: str, password: str = "testpassword123") -> dict:
