@@ -15,6 +15,16 @@
 # startCommand instead, meaning it runs on every process start/restart, not
 # just once per deploy. That's acceptable: alembic upgrade head is a no-op
 # once the DB is already at head.
+#
+# PYTHON_VERSION pins the build to 3.12.14, matching the version pinned
+# everywhere else (CLAUDE.md, the local venv). Render's own default
+# (3.14.3 for services created since Feb 2026) breaks SQLAlchemy 2.0.36's
+# annotated mapped_column() typing internals — confirmed against Render's
+# actual Python-version docs, not assumed. A .python-version file was the
+# other option, but Render's docs say that file is only honored at the
+# repo root, not inside a rootDir subfolder like backend/, so it wouldn't
+# reliably apply here; the env var applies to the whole service regardless
+# of rootDir.
 
 services:
   - type: web
@@ -26,6 +36,8 @@ services:
     buildCommand: "pip install -r requirements.txt"
     startCommand: "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
     envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.14"
       - key: DATABASE_URL
         sync: false # set manually: the Supabase Postgres connection string
         # SQLAlchemy needs the psycopg2 driver named explicitly — Supabase's

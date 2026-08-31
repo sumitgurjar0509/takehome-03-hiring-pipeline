@@ -40,12 +40,26 @@ database is already at head.
 If you'd rather configure the service by hand instead of via Blueprint,
 those three settings are all you need to enter.
 
+**Python version: this service must run Python 3.12** (matching CLAUDE.md
+and the local venv everywhere else) — not whatever Render defaults to.
+Render's own default for services created since Feb 2026 is Python 3.14,
+and SQLAlchemy 2.0.36 breaks under 3.13+'s typing internals for
+annotated `mapped_column()` types (`TypeError: descriptor '__getitem__'
+requires a 'typing.Union' object but received a 'tuple'`, raised from
+SQLAlchemy's `de_stringify_union_elements`). The Blueprint pins this via
+a `PYTHON_VERSION=3.12.14` env var rather than a `.python-version` file,
+because Render only honors that file at the repo root, not inside a
+`rootDir` subfolder like this service's `backend/` — the env var applies
+regardless of `rootDir`. If configuring by hand instead of via Blueprint,
+set `PYTHON_VERSION=3.12.14` in the service's environment variables.
+
 **Environment variables** (Render dashboard -> service -> Environment; the
 Blueprint declares these but the secret-shaped ones need a real value
 pasted in manually):
 
 | Variable | Where it comes from |
 |---|---|
+| `PYTHON_VERSION` | Fixed at `3.12.14` (in the Blueprint already) — see above. |
 | `DATABASE_URL` | The Supabase connection string from step 1, with `+psycopg2` added. Set manually — never committed. |
 | `JWT_SECRET_KEY` | Render generates and stores a random value automatically (`generateValue: true` in the Blueprint) — nothing to do. |
 | `JWT_ALGORITHM` | Fixed at `HS256` (in the Blueprint already). |
