@@ -55,8 +55,8 @@ Under 15 hours total, against a beforehand estimate of 20–21 hours.
 
 ## What would you do next, with another 12 hours?
 
-**TODO — fill in yourself.** (Personal judgment call — not generated.)
+Automated frontend tests. Everything backend was covered by pytest (152 tests), but the frontend was only ever verified through manual/headless-browser runs during each session — real and thorough at the time, but nothing that runs automatically or catches a regression later. I'd add a proper frontend test suite covering the role-based routing, the pipeline stage-change UI, and the alerts dismiss/reappear flow, since those are exactly the places a UI regression would be easy to miss without a test catching it.
 
 ## What are you least happy with in this codebase, and why?
 
-**TODO — fill in yourself.** (Personal judgment call — not generated.)
+The Dashboard's role gate. Every other role-restricted page uses the same `ProtectedRoute` component with a `roles` prop — one shared, consistent pattern. The Dashboard is the one exception: because it lives at `/` and every role lands there after login, gating it with `ProtectedRoute` the normal way would cause a redirect loop for interviewers. So instead it handles the redirect itself, inside the component. It's not a security gap — `GET /dashboard` is independently enforced server-side regardless of how the frontend routes — but it means there's one page in the codebase that doesn't follow the pattern everywhere else, and I'd rather have found a way to keep the abstraction consistent than carve out an exception for it.
