@@ -1,27 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import Layout from "../components/Layout";
+import StageBadge from "../components/StageBadge";
 import { getOpening } from "../api/openings";
 import { listApplicationsForOpening } from "../api/applications";
-
-const STAGE_STYLES = {
-  applied: "bg-stage-applied/10 text-stage-applied",
-  screening: "bg-stage-screening/10 text-stage-screening",
-  interview: "bg-stage-interview/10 text-stage-interview",
-  offer: "bg-stage-offer/10 text-stage-offer",
-  hired: "bg-stage-hired/10 text-stage-hired",
-  rejected: "bg-stage-rejected/10 text-stage-rejected",
-};
-
-function StageBadge({ stage }) {
-  return (
-    <span
-      className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium capitalize ${STAGE_STYLES[stage] ?? ""}`}
-    >
-      {stage}
-    </span>
-  );
-}
 
 export default function OpeningDetail() {
   const { id } = useParams();

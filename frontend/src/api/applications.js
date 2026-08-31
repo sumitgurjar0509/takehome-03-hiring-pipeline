@@ -15,3 +15,15 @@ export function createApplication(openingId, data) {
 export function updateApplication(id, data) {
   return api.patch(`/applications/${id}`, data).then((res) => res.data);
 }
+
+export function advanceApplication(id, toStage) {
+  return api.post(`/applications/${id}/advance`, { to_stage: toStage }).then((res) => res.data);
+}
+
+export function rejectApplication(id) {
+  return api.post(`/applications/${id}/reject`).then((res) => res.data);
+}
+
+export function reinstateApplication(id) {
+  return api.post(`/applications/${id}/reinstate`).then((res) => res.data);
+}

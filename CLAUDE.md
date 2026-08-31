@@ -129,7 +129,12 @@ docs/                    plan.md / schema.md / architecture.md / decisions.md / 
   to produce correct config files (e.g. a `render.yaml` / build & start
   commands documented in a deploy doc) and leave connection details as env
   vars, never hardcoded.
-
+- **A Hired application cannot be rejected**, even though goal 4 says reject is
+  legal "from any stage." Hired is treated as terminal alongside Rejected —
+  rejecting a hire is HR/termination territory, outside this pipeline's scope.
+  (Confirmed in Session 0 and re-confirmed in Session 4's transition-table
+  checkpoint. If this gets re-asked a third time, something's wrong with how
+  CLAUDE.md is being read at session start.)
 ## Current implementation state
 
 **Done and tested (2 commits so far):**

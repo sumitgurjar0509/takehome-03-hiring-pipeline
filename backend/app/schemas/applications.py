@@ -59,6 +59,11 @@ class ApplicationOut(BaseModel):
     notes: str
     current_stage: Stage
     rejected_from_stage: Stage | None
+    stage_changed_at: datetime
     created_by_id: int
     created_at: datetime
     updated_at: datetime
+
+
+class AdvanceRequest(BaseModel):
+    to_stage: Stage
