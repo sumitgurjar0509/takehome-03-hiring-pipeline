@@ -20,7 +20,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.deps import get_current_user, require_recruiter
+from app.deps import get_current_user, require_interviewer, require_recruiter
 from app.models import Stage, User, UserRole
 from app.schemas.applications import (
     AdvanceRequest,
@@ -33,6 +33,7 @@ from app.schemas.applications import (
     BulkActionRequest,
     BulkActionResponse,
 )
+from app.schemas.history import FeedbackCreate, HistoryEntryOut
 from app.services import applications as applications_service
 from app.services import panel as panel_service
 from app.services import pipeline as pipeline_service
@@ -138,6 +139,53 @@ def get_application(
     if current_user.role == UserRole.INTERVIEWER:
         return panel_service.get_application_for_interviewer_or_404(db, application_id, current_user)
     return applications_service.get_application_or_404(db, application_id)
+
+
+def _to_history_entry_out(entry) -> HistoryEntryOut:
+    return HistoryEntryOut(
+        id=entry.id,
+        event_type=entry.event_type,
+        old_stage=entry.old_stage,
+        new_stage=entry.new_stage,
+        feedback_text=entry.feedback_text,
+        actor_id=entry.actor_id,
+        actor_name=entry.actor.name,
+        created_at=entry.created_at,
+    )
+
+
+@applications_router.get("/{application_id}/history", response_model=list[HistoryEntryOut])
+def get_application_history(
+    application_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    # Same recruiter-any / interviewer-only-if-assigned split as GET
+    # /{application_id} — 404 (not 403) for an interviewer's unassigned
+    # application, consistent with that existing read.
+    if current_user.role == UserRole.INTERVIEWER:
+        panel_service.get_application_for_interviewer_or_404(db, application_id, current_user)
+    else:
+        applications_service.get_application_or_404(db, application_id)
+
+    entries = applications_service.list_history_for_application(db, application_id)
+    return [_to_history_entry_out(entry) for entry in entries]
+
+
+@applications_router.post("/{application_id}/feedback", response_model=HistoryEntryOut, status_code=201)
+def add_feedback(
+    application_id: int,
+    payload: FeedbackCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_interviewer),
+):
+    # Feedback is interviewer-only (README goal 1) and scoped to the
+    # interviewer's own panel — 403 here rather than the 404 used for GET
+    # reads, since this is a write action and the interviewer already
+    # knows the application id from their own assignment history.
+    application = panel_service.get_application_for_interviewer_or_403(db, application_id, current_user)
+    entry = applications_service.add_feedback(db, application, payload.feedback_text, current_user)
+    return _to_history_entry_out(entry)
 
 
 @applications_router.patch("/{application_id}", response_model=ApplicationOut)

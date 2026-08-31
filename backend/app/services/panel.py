@@ -87,15 +87,10 @@ def list_applications_for_interviewer(db: Session, interviewer: User) -> list[Ap
     )
 
 
-def get_application_for_interviewer_or_404(
+def _application_on_interviewers_panel(
     db: Session, application_id: int, interviewer: User
-) -> Application:
-    """
-    404s both when the application doesn't exist and when it exists but
-    this interviewer isn't on its panel, so the response can't be used to
-    probe which applications exist elsewhere in the system.
-    """
-    application = (
+) -> Application | None:
+    return (
         db.query(Application)
         .join(ApplicationInterviewer, ApplicationInterviewer.application_id == Application.id)
         .filter(
@@ -104,6 +99,38 @@ def get_application_for_interviewer_or_404(
         )
         .first()
     )
+
+
+def get_application_for_interviewer_or_404(
+    db: Session, application_id: int, interviewer: User
+) -> Application:
+    """
+    404s both when the application doesn't exist and when it exists but
+    this interviewer isn't on its panel, so the response can't be used to
+    probe which applications exist elsewhere in the system. Used for reads
+    (GET application detail, GET history).
+    """
+    application = _application_on_interviewers_panel(db, application_id, interviewer)
     if application is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Application not found.")
+    return application
+
+
+def get_application_for_interviewer_or_403(
+    db: Session, application_id: int, interviewer: User
+) -> Application:
+    """
+    Same panel-membership check as get_application_for_interviewer_or_404,
+    but for the feedback write action (goal 9), where a 403 is what's
+    explicitly wanted rather than hiding existence behind a 404 — the
+    interviewer already knows this application id from their own
+    assignment history, the question is just whether they're allowed to
+    act on it right now.
+    """
+    application = _application_on_interviewers_panel(db, application_id, interviewer)
+    if application is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not assigned to this application.",
+        )
     return application

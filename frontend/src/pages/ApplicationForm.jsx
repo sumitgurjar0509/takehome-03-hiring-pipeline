@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Layout from "../components/Layout";
 import StageBadge from "../components/StageBadge";
+import Timeline from "../components/Timeline";
 import {
   advanceApplication,
   createApplication,
@@ -17,6 +18,7 @@ import {
   listInterviewers,
   unassignInterviewer,
 } from "../api/panel";
+import { getHistory } from "../api/history";
 
 const EMPTY_FORM = { candidate_name: "", candidate_email: "", source: "", notes: "" };
 
@@ -52,11 +54,12 @@ export default function ApplicationForm() {
   const [selectedInterviewerId, setSelectedInterviewerId] = useState("");
   const [panelError, setPanelError] = useState("");
   const [panelBusy, setPanelBusy] = useState(false);
+  const [history, setHistory] = useState([]);
 
   useEffect(() => {
     if (isEdit) {
-      Promise.all([getApplication(id), getApplicationPanel(id), listInterviewers()])
-        .then(([data, panelData, interviewersData]) => {
+      Promise.all([getApplication(id), getApplicationPanel(id), listInterviewers(), getHistory(id)])
+        .then(([data, panelData, interviewersData, historyData]) => {
           setApplication(data);
           setForm({
             candidate_name: data.candidate_name,
@@ -67,6 +70,7 @@ export default function ApplicationForm() {
           setResolvedOpeningId(data.job_opening_id);
           setPanel(panelData);
           setInterviewerOptions(interviewersData);
+          setHistory(historyData);
           return getOpening(data.job_opening_id);
         })
         .then((opening) => setOpeningTitle(opening.title))
@@ -88,6 +92,7 @@ export default function ApplicationForm() {
     try {
       const updated = await action();
       setApplication(updated);
+      setHistory(await getHistory(id));
     } catch (err) {
       setPipelineError(err.response?.data?.detail || "Could not update this application's stage.");
     } finally {
@@ -261,6 +266,15 @@ export default function ApplicationForm() {
             >
               Assign
             </button>
+          </div>
+        </div>
+      )}
+
+      {isEdit && !loading && (
+        <div className="mt-6 max-w-lg rounded-lg border border-border bg-surface p-4">
+          <h2 className="text-sm font-semibold text-ink">History</h2>
+          <div className="mt-3">
+            <Timeline entries={history} />
           </div>
         </div>
       )}

@@ -155,6 +155,39 @@ def list_applications(
     return results, total
 
 
+def add_feedback(
+    db: Session, application: Application, feedback_text: str, actor: User
+) -> ApplicationHistoryEntry:
+    """
+    README goal 9: interviewer feedback is part of the append-only
+    timeline, not a field on Application — this is the only code path that
+    ever inserts a FEEDBACK entry, and there is deliberately no update or
+    delete path for it.
+    """
+    entry = ApplicationHistoryEntry(
+        application_id=application.id,
+        event_type=HistoryEventType.FEEDBACK,
+        old_stage=None,
+        new_stage=None,
+        feedback_text=feedback_text,
+        actor_id=actor.id,
+    )
+    db.add(entry)
+    db.commit()
+    db.refresh(entry)
+    return entry
+
+
+def list_history_for_application(db: Session, application_id: int) -> list[ApplicationHistoryEntry]:
+    return (
+        db.query(ApplicationHistoryEntry)
+        .options(joinedload(ApplicationHistoryEntry.actor))
+        .filter(ApplicationHistoryEntry.application_id == application_id)
+        .order_by(ApplicationHistoryEntry.created_at.asc(), ApplicationHistoryEntry.id.asc())
+        .all()
+    )
+
+
 def list_applications_for_export(db: Session) -> list[Application]:
     """
     README goal 7's CSV export: every application NOT in a terminal stage
