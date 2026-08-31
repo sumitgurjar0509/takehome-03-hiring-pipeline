@@ -4,20 +4,24 @@ Fill this in and commit it. This is the first file we open.
 
 ## Links
 
-- **GitHub repository:** <public repo URL>
-- **Live application:** <deployed URL>
+- **GitHub repository:** https://github.com/sumitgurjar0509/takehome-03-hiring-pipeline
+- **Live application:** https://takehome-03-hiring-pipeline.vercel.app
 
 ## Notes for the reviewer
 
-<Anything we should know before opening the link — e.g. your host sleeps when idle and the first
-request can take up to a minute.>
+The backend (Render free tier) and database (Supabase free tier) can both sleep after a period of
+inactivity — the first request after that can take up to a minute or more to wake up, so a slow
+first load is not a broken deployment. The frontend calls the backend API directly at
+https://hiring-pipeline-api.onrender.com.
 
 ## Demo credentials
 
 | Role | Email | Password |
 |------|-------|----------|
-| <role 1> | | |
-| <role 2> | | |
+| recruiter | recruiter@demo.com | RecruiterPass123! |
+| recruiter | recruiter2@demo.com | RecruiterPass123! |
+| interviewer | interviewer@demo.com | InterviewerPass123! |
+| interviewer | interviewer2@demo.com | InterviewerPass123! |
 
 ## Stack
 
@@ -47,6 +51,12 @@ Mark each honestly. Partial is fine — say what is partial.
 
 ## How much time did you actually spend?
 
+Under 15 hours total, against a beforehand estimate of 20–21 hours.
+
 ## What would you do next, with another 12 hours?
 
+**TODO — fill in yourself.** (Personal judgment call — not generated.)
+
 ## What are you least happy with in this codebase, and why?
+
+**TODO — fill in yourself.** (Personal judgment call — not generated.)
