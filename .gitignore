@@ -10,3 +10,6 @@ venv/
 .env.*.local
 *.log
 .DS_Store
+backend/.pytest_cache/
+backend/**/__pycache__/
+frontend/dist/
