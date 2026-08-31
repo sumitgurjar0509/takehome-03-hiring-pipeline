@@ -6,6 +6,7 @@ show when it was created, and this is the only code path that ever inserts
 one, so there's nowhere else that row could come from.
 """
 from fastapi import HTTPException, status
+from sqlalchemy import case, or_
 from sqlalchemy.orm import Session
 
 from app.models import (
@@ -16,7 +17,33 @@ from app.models import (
     Stage,
     User,
 )
-from app.schemas.applications import ApplicationCreate, ApplicationUpdate
+from app.schemas.applications import ApplicationCreate, ApplicationSort, ApplicationUpdate
+
+# Pipeline position, not alphabetical — see ApplicationSort's docstring and
+# docs/decisions.md. Rejected has no natural pipeline position; sorted last.
+# Written as (condition, value) pairs rather than case({...}, value=col) —
+# the dict form loses the column's Postgres ENUM type on the bound
+# parameters and psycopg2 rejects them ("invalid input value for enum").
+_STAGE_SORT_RANK = case(
+    (Application.current_stage == Stage.APPLIED, 0),
+    (Application.current_stage == Stage.SCREENING, 1),
+    (Application.current_stage == Stage.INTERVIEW, 2),
+    (Application.current_stage == Stage.OFFER, 3),
+    (Application.current_stage == Stage.HIRED, 4),
+    (Application.current_stage == Stage.REJECTED, 5),
+)
+
+_SORT_COLUMNS = {
+    "applied_date": Application.created_at,
+    "stage": _STAGE_SORT_RANK,
+    "last_update": Application.updated_at,
+}
+
+
+def _sort_clause(sort: ApplicationSort):
+    descending = sort.value.startswith("-")
+    column = _SORT_COLUMNS[sort.value[1:] if descending else sort.value]
+    return column.desc() if descending else column.asc()
 
 
 def get_opening_or_404(db: Session, opening_id: int) -> JobOpening:
@@ -80,3 +107,48 @@ def update_application(db: Session, application_id: int, data: ApplicationUpdate
     db.commit()
     db.refresh(application)
     return application
+
+
+def list_applications(
+    db: Session,
+    *,
+    search: str | None,
+    job_opening_id: int | None,
+    stage: Stage | None,
+    source: str | None,
+    sort: ApplicationSort,
+    page: int,
+    page_size: int,
+) -> tuple[list[Application], int]:
+    """
+    Cross-opening search/filter/sort/pagination (README goal 6). Every
+    piece of this — the text search, each filter, the sort, and the page
+    slice — happens in the SQL query itself; nothing is loaded into Python
+    and filtered there.
+    """
+    query = db.query(Application)
+
+    if search:
+        pattern = f"%{search}%"
+        query = query.filter(
+            or_(
+                Application.candidate_name.ilike(pattern),
+                Application.candidate_email.ilike(pattern),
+            )
+        )
+    if job_opening_id is not None:
+        query = query.filter(Application.job_opening_id == job_opening_id)
+    if stage is not None:
+        query = query.filter(Application.current_stage == stage)
+    if source:
+        query = query.filter(Application.source.ilike(source))
+
+    total = query.count()
+
+    results = (
+        query.order_by(_sort_clause(sort))
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+    return results, total

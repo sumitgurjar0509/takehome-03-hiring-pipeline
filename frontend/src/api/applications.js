@@ -4,6 +4,13 @@ export function listApplicationsForOpening(openingId) {
   return api.get(`/openings/${openingId}/applications`).then((res) => res.data);
 }
 
+// Recruiter-scoped, cross-opening search/filter/sort/pagination (goal 6).
+// Every param is forwarded straight to the server — no client-side
+// filtering here.
+export function listApplications(params = {}) {
+  return api.get("/applications", { params }).then((res) => res.data);
+}
+
 export function getApplication(id) {
   return api.get(`/applications/${id}`).then((res) => res.data);
 }

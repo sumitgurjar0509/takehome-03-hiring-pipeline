@@ -4,6 +4,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Login from "./pages/Login";
 import Home from "./pages/Home";
 import Openings from "./pages/Openings";
+import Applications from "./pages/Applications";
 import OpeningForm from "./pages/OpeningForm";
 import OpeningDetail from "./pages/OpeningDetail";
 import ApplicationForm from "./pages/ApplicationForm";
@@ -29,6 +30,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <Openings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/applications"
+            element={
+              <ProtectedRoute roles={["recruiter"]}>
+                <Applications />
               </ProtectedRoute>
             }
           />

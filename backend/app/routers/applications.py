@@ -6,18 +6,23 @@ opening. Every write here is recruiter-only. GET /{application_id} is the
 one exception, as of goal 5: a recruiter can fetch any application, and an
 interviewer can fetch one only if they're on its panel (404 otherwise) —
 the first and only application-level access interviewers get, scoped
-server-side via the join table rather than loosened wholesale.
+server-side via the join table rather than loosened wholesale. GET
+"" (goal 6) is the recruiter-scoped cross-opening search/filter/sort/
+paginate list — separate from goal 5's /my-assignments, which is
+interviewer-panel-scoped and stays that way.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.deps import get_current_user, require_recruiter
-from app.models import User, UserRole
+from app.models import Stage, User, UserRole
 from app.schemas.applications import (
     AdvanceRequest,
     ApplicationCreate,
+    ApplicationListOut,
     ApplicationOut,
+    ApplicationSort,
     ApplicationUpdate,
 )
 from app.services import applications as applications_service
@@ -48,6 +53,31 @@ def list_applications_for_opening(
     current_user: User = Depends(require_recruiter),
 ):
     return applications_service.list_applications_for_opening(db, opening_id)
+
+
+@applications_router.get("", response_model=ApplicationListOut)
+def list_applications(
+    search: str | None = None,
+    job_opening_id: int | None = None,
+    stage: Stage | None = None,
+    source: str | None = None,
+    sort: ApplicationSort = ApplicationSort.APPLIED_DATE_DESC,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_recruiter),
+):
+    results, total = applications_service.list_applications(
+        db,
+        search=search,
+        job_opening_id=job_opening_id,
+        stage=stage,
+        source=source,
+        sort=sort,
+        page=page,
+        page_size=page_size,
+    )
+    return ApplicationListOut(results=results, total=total, page=page, page_size=page_size)
 
 
 @applications_router.get("/{application_id}", response_model=ApplicationOut)

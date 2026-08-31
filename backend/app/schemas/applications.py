@@ -1,3 +1,4 @@
+import enum
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, field_validator
@@ -67,3 +68,25 @@ class ApplicationOut(BaseModel):
 
 class AdvanceRequest(BaseModel):
     to_stage: Stage
+
+
+class ApplicationSort(str, enum.Enum):
+    """
+    A leading "-" means descending. "stage" sorts by pipeline position
+    (Applied..Hired, Rejected last) rather than alphabetically — see
+    docs/decisions.md.
+    """
+
+    APPLIED_DATE_ASC = "applied_date"
+    APPLIED_DATE_DESC = "-applied_date"
+    STAGE_ASC = "stage"
+    STAGE_DESC = "-stage"
+    LAST_UPDATE_ASC = "last_update"
+    LAST_UPDATE_DESC = "-last_update"
+
+
+class ApplicationListOut(BaseModel):
+    results: list[ApplicationOut]
+    total: int
+    page: int
+    page_size: int
