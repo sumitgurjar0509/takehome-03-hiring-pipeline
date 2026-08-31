@@ -1,0 +1,44 @@
+# Render Blueprint for the backend API.
+#
+# Deploy: in the Render dashboard, "New +" -> "Blueprint", point it at this
+# repo, and it reads this file automatically. (Or configure a single Web
+# Service manually with the same settings below — the Blueprint just saves
+# re-typing them.)
+#
+# Per README's suggested combo, the database is Supabase Postgres, not a
+# Render-managed database — Render provisions nothing for it. Create the
+# Supabase project first, then paste its connection string into
+# DATABASE_URL below (Render dashboard -> this service -> Environment).
+#
+# alembic upgrade head runs as a preDeployCommand (available on every plan,
+# including free) rather than being chained into startCommand, so schema
+# migrations run once per deploy rather than on every process restart.
+# alembic upgrade head is idempotent — safe to re-run if a deploy is retried.
+
+services:
+  - type: web
+    name: hiring-pipeline-api
+    runtime: python
+    region: oregon # change to whichever Render region is closest to you
+    plan: free
+    rootDir: backend
+    buildCommand: "pip install -r requirements.txt"
+    preDeployCommand: "alembic upgrade head"
+    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: DATABASE_URL
+        sync: false # set manually: the Supabase Postgres connection string
+        # SQLAlchemy needs the psycopg2 driver named explicitly — Supabase's
+        # connection string starts "postgresql://"; change it to
+        # "postgresql+psycopg2://" (same as backend/.env.example's local
+        # example) before pasting it in here.
+      - key: JWT_SECRET_KEY
+        generateValue: true # Render generates and stores a random 256-bit secret
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: JWT_EXPIRE_MINUTES
+        value: "480"
+      - key: CORS_ORIGINS
+        sync: false # set manually once the Vercel URL is known, e.g.
+        # https://hiring-pipeline.vercel.app — comma-separate multiple
+        # origins if you end up with both a production and a preview URL
