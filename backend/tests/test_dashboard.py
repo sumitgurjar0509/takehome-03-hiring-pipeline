@@ -26,10 +26,11 @@ def _history_entry(db_session, application, actor, event_type, new_stage, create
     return entry
 
 
-def test_open_positions_counts_only_open_status(client, recruiter, make_opening):
+def test_open_positions_counts_only_non_archived_open_status(client, recruiter, make_opening):
     make_opening(title="Open A", status=OpeningStatus.OPEN)
     make_opening(title="Open B", status=OpeningStatus.OPEN)
     make_opening(title="Closed C", status=OpeningStatus.CLOSED)
+    make_opening(title="Archived But Open D", status=OpeningStatus.OPEN, archived=True)
     headers = auth_headers(client, "recruiter@example.com")
 
     response = client.get("/dashboard", headers=headers)

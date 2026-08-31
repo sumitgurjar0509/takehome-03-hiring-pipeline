@@ -41,8 +41,13 @@ def _next_month_start(month_start: datetime) -> datetime:
 def get_dashboard(db: Session) -> dict:
     now = datetime.now(timezone.utc)
 
+    # Archived means "hidden from default views" (see docs/decisions.md),
+    # and a dashboard KPI is a default view — so an archived-but-open
+    # opening doesn't count here, even though its status is still OPEN.
     open_positions = (
-        db.query(func.count(JobOpening.id)).filter(JobOpening.status == OpeningStatus.OPEN).scalar()
+        db.query(func.count(JobOpening.id))
+        .filter(JobOpening.status == OpeningStatus.OPEN, JobOpening.archived.is_(False))
+        .scalar()
     )
 
     active_applications = (
