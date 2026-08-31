@@ -10,10 +10,11 @@
 # Supabase project first, then paste its connection string into
 # DATABASE_URL below (Render dashboard -> this service -> Environment).
 #
-# alembic upgrade head runs as a preDeployCommand (available on every plan,
-# including free) rather than being chained into startCommand, so schema
-# migrations run once per deploy rather than on every process restart.
-# alembic upgrade head is idempotent — safe to re-run if a deploy is retried.
+# preDeployCommand isn't available on Render's free plan (confirmed against
+# the actual dashboard) — so alembic upgrade head is chained into
+# startCommand instead, meaning it runs on every process start/restart, not
+# just once per deploy. That's acceptable: alembic upgrade head is a no-op
+# once the DB is already at head.
 
 services:
   - type: web
@@ -23,8 +24,7 @@ services:
     plan: free
     rootDir: backend
     buildCommand: "pip install -r requirements.txt"
-    preDeployCommand: "alembic upgrade head"
-    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    startCommand: "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
     envVars:
       - key: DATABASE_URL
         sync: false # set manually: the Supabase Postgres connection string

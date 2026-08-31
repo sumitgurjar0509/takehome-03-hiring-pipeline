@@ -15,8 +15,8 @@ push, and deploy clicks are done manually, not by this doc.
    the psycopg2 driver named explicitly, so change the scheme to
    `postgresql+psycopg2://` before using it anywhere — same format as
    `backend/.env.example`'s local example.
-3. Nothing else to do here — Alembic (via Render's `preDeployCommand`,
-   below) creates the schema on first deploy.
+3. Nothing else to do here — Alembic (chained into the backend's start
+   command, below) creates the schema the first time the service boots.
 
 ## 2. Backend — Render
 
@@ -28,12 +28,17 @@ automatically. It defines one Web Service:
 |---|---|
 | Root directory | `backend` |
 | Build command | `pip install -r requirements.txt` |
-| Pre-deploy command | `alembic upgrade head` (runs once per deploy, not per restart; idempotent if a deploy is retried) |
-| Start command | `uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
+| Start command | `alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
 | Plan | Free |
 
+Render's `preDeployCommand` isn't available on the free plan (confirmed
+against the actual dashboard), so the migration is chained into the start
+command instead — it runs on every process start/restart rather than
+once per deploy. That's fine: `alembic upgrade head` is a no-op once the
+database is already at head.
+
 If you'd rather configure the service by hand instead of via Blueprint,
-those four commands are all you need to enter.
+those three settings are all you need to enter.
 
 **Environment variables** (Render dashboard -> service -> Environment; the
 Blueprint declares these but the secret-shaped ones need a real value
