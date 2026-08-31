@@ -34,6 +34,7 @@ from app.schemas.applications import (
     BulkActionResponse,
 )
 from app.schemas.history import FeedbackCreate, HistoryEntryOut
+from app.services import alerts as alerts_service
 from app.services import applications as applications_service
 from app.services import panel as panel_service
 from app.services import pipeline as pipeline_service
@@ -250,3 +251,13 @@ def reinstate_application(
     _apply_transition(db, history_entry)
     db.refresh(application)
     return application
+
+
+@applications_router.post("/{application_id}/dismiss-alert", response_model=ApplicationOut)
+def dismiss_alert(
+    application_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_recruiter),
+):
+    application = applications_service.get_application_or_404(db, application_id)
+    return alerts_service.dismiss_alert(db, application)

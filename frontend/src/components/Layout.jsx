@@ -1,5 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useAlerts } from "../context/AlertsContext";
 
 const recruiterNav = [
   { to: "/", label: "Dashboard", end: true },
@@ -10,26 +11,32 @@ const recruiterNav = [
 
 const interviewerNav = [{ to: "/my-assignments", label: "My Assignments" }];
 
-function NavItem({ to, label, end }) {
+function NavItem({ to, label, end, badge }) {
   return (
     <NavLink
       to={to}
       end={end}
       className={({ isActive }) =>
-        `block rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+        `flex items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition-colors ${
           isActive
             ? "bg-brand text-white"
             : "text-ink-muted hover:bg-black/5 hover:text-ink"
         }`
       }
     >
-      {label}
+      <span>{label}</span>
+      {badge > 0 && (
+        <span className="rounded-full bg-danger px-2 py-0.5 text-xs font-semibold text-white">
+          {badge}
+        </span>
+      )}
     </NavLink>
   );
 }
 
 export default function Layout({ children }) {
   const { user, logout } = useAuth();
+  const { count: alertCount } = useAlerts();
   const navItems = user?.role === "recruiter" ? recruiterNav : interviewerNav;
 
   return (
@@ -40,7 +47,7 @@ export default function Layout({ children }) {
         </div>
         <nav className="flex flex-1 flex-col gap-1 px-3">
           {navItems.map((item) => (
-            <NavItem key={item.to} {...item} />
+            <NavItem key={item.to} {...item} badge={item.to === "/alerts" ? alertCount : 0} />
           ))}
         </nav>
         <div className="border-t border-border px-4 py-4">
