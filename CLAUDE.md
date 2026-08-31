@@ -87,7 +87,14 @@ docs/                    plan.md / schema.md / architecture.md / decisions.md / 
   separate table. A dismissal is only valid for the stage it was made at —
   if `current_stage` no longer matches `stall_dismissed_stage`, the
   dismissal is stale and the alert can reappear. That's the whole
-  reappearance rule from goal 10, no extra logic needed.
+  reappearance rule from goal 10, no extra logic needed — **but only if
+  goal 4's transition logic clears both columns to null on every stage
+  change** (advance, reject, and reinstate — all three). Without that
+  clear step, a reject-then-reinstate cycle back into a stage that was
+  dismissed before the rejection would silently and incorrectly suppress a
+  genuinely new stall period, since the stage value alone would still
+  match. This is implemented in goal 4, verified in goal 10, and re-checked
+  in the review pass.
 - **CSV export's "every open application"** (goal 7) means every application
   NOT in a terminal stage (`current_stage` not in `{HIRED, REJECTED}`) —
   regardless of whether its job opening is open or archived. If you think
