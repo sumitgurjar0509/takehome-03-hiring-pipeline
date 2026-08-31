@@ -11,6 +11,12 @@ import {
   updateApplication,
 } from "../api/applications";
 import { getOpening } from "../api/openings";
+import {
+  assignInterviewer,
+  getApplicationPanel,
+  listInterviewers,
+  unassignInterviewer,
+} from "../api/panel";
 
 const EMPTY_FORM = { candidate_name: "", candidate_email: "", source: "", notes: "" };
 
@@ -41,11 +47,16 @@ export default function ApplicationForm() {
   const [error, setError] = useState("");
   const [pipelineError, setPipelineError] = useState("");
   const [pipelineBusy, setPipelineBusy] = useState(false);
+  const [panel, setPanel] = useState(null);
+  const [interviewerOptions, setInterviewerOptions] = useState([]);
+  const [selectedInterviewerId, setSelectedInterviewerId] = useState("");
+  const [panelError, setPanelError] = useState("");
+  const [panelBusy, setPanelBusy] = useState(false);
 
   useEffect(() => {
     if (isEdit) {
-      getApplication(id)
-        .then((data) => {
+      Promise.all([getApplication(id), getApplicationPanel(id), listInterviewers()])
+        .then(([data, panelData, interviewersData]) => {
           setApplication(data);
           setForm({
             candidate_name: data.candidate_name,
@@ -54,6 +65,8 @@ export default function ApplicationForm() {
             notes: data.notes,
           });
           setResolvedOpeningId(data.job_opening_id);
+          setPanel(panelData);
+          setInterviewerOptions(interviewersData);
           return getOpening(data.job_opening_id);
         })
         .then((opening) => setOpeningTitle(opening.title))
@@ -91,6 +104,34 @@ export default function ApplicationForm() {
   const handleReject = () => runPipelineAction(() => rejectApplication(id));
 
   const handleReinstate = () => runPipelineAction(() => reinstateApplication(id));
+
+  const handleAssign = async () => {
+    if (!selectedInterviewerId) return;
+    setPanelError("");
+    setPanelBusy(true);
+    try {
+      const updated = await assignInterviewer(id, Number(selectedInterviewerId));
+      setPanel(updated);
+      setSelectedInterviewerId("");
+    } catch (err) {
+      setPanelError(err.response?.data?.detail || "Could not assign that interviewer.");
+    } finally {
+      setPanelBusy(false);
+    }
+  };
+
+  const handleUnassign = async (interviewerId) => {
+    setPanelError("");
+    setPanelBusy(true);
+    try {
+      const updated = await unassignInterviewer(id, interviewerId);
+      setPanel(updated);
+    } catch (err) {
+      setPanelError(err.response?.data?.detail || "Could not remove that interviewer.");
+    } finally {
+      setPanelBusy(false);
+    }
+  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -159,6 +200,67 @@ export default function ApplicationForm() {
                 )}
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {isEdit && panel !== null && (
+        <div className="mt-6 max-w-lg rounded-lg border border-border bg-surface p-4">
+          <h2 className="text-sm font-semibold text-ink">Interview panel</h2>
+
+          {panelError && (
+            <p role="alert" className="mt-3 text-sm font-medium text-danger">
+              {panelError}
+            </p>
+          )}
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            {panel.length === 0 ? (
+              <p className="text-sm text-ink-muted">No interviewers assigned yet.</p>
+            ) : (
+              panel.map((assignedInterviewer) => (
+                <span
+                  key={assignedInterviewer.id}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-bg px-2.5 py-1 text-xs font-medium text-ink"
+                >
+                  {assignedInterviewer.name}
+                  <button
+                    type="button"
+                    onClick={() => handleUnassign(assignedInterviewer.id)}
+                    disabled={panelBusy}
+                    aria-label={`Remove ${assignedInterviewer.name} from the panel`}
+                    className="text-ink-muted hover:text-danger disabled:opacity-60"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))
+            )}
+          </div>
+
+          <div className="mt-4 flex gap-2">
+            <select
+              value={selectedInterviewerId}
+              onChange={(event) => setSelectedInterviewerId(event.target.value)}
+              className="flex-1 rounded-md border border-border bg-surface px-3 py-2 text-sm text-ink"
+            >
+              <option value="">Select an interviewer…</option>
+              {interviewerOptions
+                .filter((option) => !panel.some((assigned) => assigned.id === option.id))
+                .map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.name} ({option.email})
+                  </option>
+                ))}
+            </select>
+            <button
+              type="button"
+              onClick={handleAssign}
+              disabled={panelBusy || !selectedInterviewerId}
+              className="rounded-md bg-brand px-3 py-2 text-sm font-medium text-white hover:bg-brand-hover disabled:opacity-60"
+            >
+              Assign
+            </button>
           </div>
         </div>
       )}

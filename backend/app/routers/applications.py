@@ -2,16 +2,18 @@
 Two routers: one nested under a job opening (create + "show its
 applications"), one flat by application id (get/edit) since later goals
 (4, 5, 9) need to address a single application without knowing its
-opening. Every endpoint here is recruiter-only — interviewers have had no
-application-level access since goal 1's role split, and that doesn't
-change until goal 5 gives them their one assignment-scoped endpoint.
+opening. Every write here is recruiter-only. GET /{application_id} is the
+one exception, as of goal 5: a recruiter can fetch any application, and an
+interviewer can fetch one only if they're on its panel (404 otherwise) —
+the first and only application-level access interviewers get, scoped
+server-side via the join table rather than loosened wholesale.
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.deps import require_recruiter
-from app.models import User
+from app.deps import get_current_user, require_recruiter
+from app.models import User, UserRole
 from app.schemas.applications import (
     AdvanceRequest,
     ApplicationCreate,
@@ -19,6 +21,7 @@ from app.schemas.applications import (
     ApplicationUpdate,
 )
 from app.services import applications as applications_service
+from app.services import panel as panel_service
 from app.services import pipeline as pipeline_service
 from app.services.pipeline import PipelineError
 
@@ -51,8 +54,10 @@ def list_applications_for_opening(
 def get_application(
     application_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_recruiter),
+    current_user: User = Depends(get_current_user),
 ):
+    if current_user.role == UserRole.INTERVIEWER:
+        return panel_service.get_application_for_interviewer_or_404(db, application_id, current_user)
     return applications_service.get_application_or_404(db, application_id)
 
 

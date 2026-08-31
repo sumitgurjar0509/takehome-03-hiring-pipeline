@@ -7,6 +7,8 @@ import Openings from "./pages/Openings";
 import OpeningForm from "./pages/OpeningForm";
 import OpeningDetail from "./pages/OpeningDetail";
 import ApplicationForm from "./pages/ApplicationForm";
+import ApplicationDetail from "./pages/ApplicationDetail";
+import MyAssignments from "./pages/MyAssignments";
 
 export default function App() {
   return (
@@ -67,6 +69,22 @@ export default function App() {
             element={
               <ProtectedRoute roles={["recruiter"]}>
                 <OpeningDetail />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/my-assignments"
+            element={
+              <ProtectedRoute roles={["interviewer"]}>
+                <MyAssignments />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/applications/:id"
+            element={
+              <ProtectedRoute roles={["interviewer"]}>
+                <ApplicationDetail />
               </ProtectedRoute>
             }
           />
