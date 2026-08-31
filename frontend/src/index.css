@@ -1,0 +1,53 @@
+@import "tailwindcss";
+
+/*
+  Design tokens for the Hiring Pipeline app.
+  This is an internal operations tool, not a marketing page, so the palette
+  favors legibility and a functional stage-color system over decoration.
+  See docs/decisions.md for the reasoning.
+*/
+@theme {
+  --color-bg: #f7f7f5;
+  --color-surface: #ffffff;
+  --color-ink: #1b1d22;
+  --color-ink-muted: #5b5f6b;
+  --color-border: #e4e4e0;
+
+  --color-brand: #2f5d9f;
+  --color-brand-hover: #24487e;
+  --color-danger: #b3412b;
+  --color-danger-hover: #93331f;
+  --color-success: #2e7d4f;
+
+  /* Pipeline stage colors are functional, not decorative — used consistently
+     everywhere a stage is shown so recruiters learn to scan by color. */
+  --color-stage-applied: #6b7280;
+  --color-stage-screening: #2f5d9f;
+  --color-stage-interview: #7c5cbf;
+  --color-stage-offer: #b8860b;
+  --color-stage-hired: #2e7d4f;
+  --color-stage-rejected: #b3412b;
+
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Visible keyboard focus everywhere, not just default browser outline styling removed */
+:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
