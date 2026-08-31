@@ -7,9 +7,10 @@ one, so there's nowhere else that row could come from.
 """
 from fastapi import HTTPException, status
 from sqlalchemy import case, or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models import (
+    TERMINAL_STAGES,
     Application,
     ApplicationHistoryEntry,
     HistoryEventType,
@@ -152,3 +153,19 @@ def list_applications(
         .all()
     )
     return results, total
+
+
+def list_applications_for_export(db: Session) -> list[Application]:
+    """
+    README goal 7's CSV export: every application NOT in a terminal stage
+    (current_stage not in TERMINAL_STAGES == {HIRED, REJECTED}) — resolved
+    in CLAUDE.md, not reinterpreted here — regardless of whether its job
+    opening is open, closed, or archived.
+    """
+    return (
+        db.query(Application)
+        .options(joinedload(Application.job_opening))
+        .filter(Application.current_stage.notin_(TERMINAL_STAGES))
+        .order_by(Application.created_at.asc())
+        .all()
+    )

@@ -1,17 +1,19 @@
 """
 Pipeline stage transitions (README goal 4) — the core business logic of the
-whole app. Each function takes an Application and mutates it in place
-according to one of the three legal transition types, returning the
-ApplicationHistoryEntry to persist. Raises PipelineError on any illegal
-move; the caller turns that into a 4xx (a single-application router
-endpoint) or a per-candidate failure entry (goal 7's bulk actions), without
-this module knowing or caring which.
+whole app. advance() / reject() / reinstate() each take an Application and
+mutate it in place according to one of the three legal transition types,
+returning the ApplicationHistoryEntry to persist. They raise PipelineError
+on any illegal move and deliberately do no db.add() / db.commit() — the
+caller owns the transaction boundary.
 
-Deliberately does no db.add() / db.commit() here — the caller owns the
-transaction boundary. That's what lets goal 7 report partial success across
-a batch: each application's transition can be attempted, and failures left
-uncommitted, independently of the others.
+bulk_advance() / bulk_reject() (goal 7) are that caller for a whole batch:
+they call advance()/reject() per application, commit each success
+immediately, and turn each PipelineError into its own failed result rather
+than aborting the batch — one ineligible application never blocks the
+others.
 """
+from sqlalchemy.orm import Session
+
 from app.models import (
     STAGE_ORDER,
     Application,
@@ -21,13 +23,14 @@ from app.models import (
     User,
     utcnow,
 )
+from app.schemas.applications import BulkActionResultItem
 
 
 class PipelineError(Exception):
     """Raised for any illegal transition attempt. The message is user-facing."""
 
 
-def _next_stage(stage: Stage) -> Stage | None:
+def next_stage_after(stage: Stage) -> Stage | None:
     if stage not in STAGE_ORDER:
         return None
     index = STAGE_ORDER.index(stage)
@@ -59,7 +62,7 @@ def advance(application: Application, to_stage: Stage, actor: User) -> Applicati
     if current == Stage.HIRED:
         raise PipelineError("Cannot advance: this application is already Hired, a final stage.")
 
-    expected_next = _next_stage(current)
+    expected_next = next_stage_after(current)
     if expected_next is None or to_stage != expected_next:
         raise PipelineError(
             f"Cannot advance from {_label(current)} to {_label(to_stage)} — "
@@ -118,3 +121,76 @@ def reinstate(application: Application, actor: User) -> ApplicationHistoryEntry:
         new_stage=target_stage,
         actor_id=actor.id,
     )
+
+
+def bulk_advance(db: Session, application_ids: list[int], actor: User) -> list[BulkActionResultItem]:
+    """
+    README goal 7's bulk advance. Reuses advance() per application rather
+    than reimplementing any rule — an application ineligible to move
+    (skips, Hired, Rejected) never fails the batch, it just gets its own
+    failed result with advance()'s own message. Each success commits
+    immediately so partial progress survives a later item's failure.
+    """
+    results = []
+    for application_id in application_ids:
+        application = db.get(Application, application_id)
+        if application is None:
+            results.append(
+                BulkActionResultItem(
+                    application_id=application_id, success=False, message="Application not found."
+                )
+            )
+            continue
+
+        # advance() itself re-derives and validates the next stage; this is
+        # just what we pass in as the candidate target for the eligible
+        # case. For Hired/Rejected, advance() raises before ever looking at
+        # to_stage, so the placeholder value here is never actually used.
+        target = next_stage_after(application.current_stage) or application.current_stage
+        try:
+            history_entry = advance(application, target, actor)
+        except PipelineError as exc:
+            results.append(
+                BulkActionResultItem(application_id=application_id, success=False, message=str(exc))
+            )
+            continue
+
+        db.add(history_entry)
+        db.commit()
+        results.append(
+            BulkActionResultItem(
+                application_id=application_id,
+                success=True,
+                message=f"Advanced to {_label(target)}.",
+            )
+        )
+    return results
+
+
+def bulk_reject(db: Session, application_ids: list[int], actor: User) -> list[BulkActionResultItem]:
+    """README goal 7's bulk reject. Same shape as bulk_advance, reusing reject()."""
+    results = []
+    for application_id in application_ids:
+        application = db.get(Application, application_id)
+        if application is None:
+            results.append(
+                BulkActionResultItem(
+                    application_id=application_id, success=False, message="Application not found."
+                )
+            )
+            continue
+
+        try:
+            history_entry = reject(application, actor)
+        except PipelineError as exc:
+            results.append(
+                BulkActionResultItem(application_id=application_id, success=False, message=str(exc))
+            )
+            continue
+
+        db.add(history_entry)
+        db.commit()
+        results.append(
+            BulkActionResultItem(application_id=application_id, success=True, message="Rejected.")
+        )
+    return results

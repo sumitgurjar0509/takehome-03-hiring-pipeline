@@ -90,3 +90,30 @@ class ApplicationListOut(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class BulkAction(str, enum.Enum):
+    ADVANCE = "advance"
+    REJECT = "reject"
+
+
+class BulkActionRequest(BaseModel):
+    application_ids: list[int]
+    action: BulkAction
+
+    @field_validator("application_ids")
+    @classmethod
+    def _check_not_empty(cls, v: list[int]) -> list[int]:
+        if not v:
+            raise ValueError("application_ids cannot be empty.")
+        return v
+
+
+class BulkActionResultItem(BaseModel):
+    application_id: int
+    success: bool
+    message: str
+
+
+class BulkActionResponse(BaseModel):
+    results: list[BulkActionResultItem]

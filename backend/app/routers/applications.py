@@ -9,9 +9,14 @@ the first and only application-level access interviewers get, scoped
 server-side via the join table rather than loosened wholesale. GET
 "" (goal 6) is the recruiter-scoped cross-opening search/filter/sort/
 paginate list — separate from goal 5's /my-assignments, which is
-interviewer-panel-scoped and stays that way.
+interviewer-panel-scoped and stays that way. GET /export and POST /bulk
+(goal 7) are registered before GET /{application_id} — same HTTP method,
+literal path segment, so registration order decides the match.
 """
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+import csv
+import io
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -24,6 +29,9 @@ from app.schemas.applications import (
     ApplicationOut,
     ApplicationSort,
     ApplicationUpdate,
+    BulkAction,
+    BulkActionRequest,
+    BulkActionResponse,
 )
 from app.services import applications as applications_service
 from app.services import panel as panel_service
@@ -78,6 +86,47 @@ def list_applications(
         page_size=page_size,
     )
     return ApplicationListOut(results=results, total=total, page=page, page_size=page_size)
+
+
+@applications_router.get("/export")
+def export_applications(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_recruiter),
+):
+    applications = applications_service.list_applications_for_export(db)
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(["Candidate Name", "Candidate Email", "Job Opening", "Stage", "Applied Date"])
+    for application in applications:
+        writer.writerow(
+            [
+                application.candidate_name,
+                application.candidate_email,
+                application.job_opening.title,
+                application.current_stage.value.capitalize(),
+                application.created_at.strftime("%Y-%m-%d"),
+            ]
+        )
+
+    return Response(
+        content=buffer.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=applications.csv"},
+    )
+
+
+@applications_router.post("/bulk", response_model=BulkActionResponse)
+def bulk_action(
+    payload: BulkActionRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_recruiter),
+):
+    if payload.action == BulkAction.ADVANCE:
+        results = pipeline_service.bulk_advance(db, payload.application_ids, current_user)
+    else:
+        results = pipeline_service.bulk_reject(db, payload.application_ids, current_user)
+    return BulkActionResponse(results=results)
 
 
 @applications_router.get("/{application_id}", response_model=ApplicationOut)

@@ -34,3 +34,27 @@ export function rejectApplication(id) {
 export function reinstateApplication(id) {
   return api.post(`/applications/${id}/reinstate`).then((res) => res.data);
 }
+
+// action is "advance" or "reject". Returns { results: [{ application_id, success, message }] } —
+// one ineligible application never fails the whole batch.
+export function bulkAction(applicationIds, action) {
+  return api
+    .post("/applications/bulk", { application_ids: applicationIds, action })
+    .then((res) => res.data);
+}
+
+// The endpoint requires a JWT bearer header, so a plain <a href> download
+// link won't work — fetch it via axios (which attaches the token) and
+// save the blob via a synthetic click instead.
+export async function downloadApplicationsCsv() {
+  const response = await api.get("/applications/export", { responseType: "blob" });
+  const blob = new Blob([response.data], { type: "text/csv" });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "applications.csv";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
+}
