@@ -20,7 +20,7 @@ from sqlalchemy.orm import sessionmaker
 from app.auth import hash_password
 from app.database import Base, get_db
 from app.main import app
-from app.models import JobOpening, OpeningStatus, User, UserRole
+from app.models import Application, JobOpening, OpeningStatus, User, UserRole
 
 TEST_DATABASE_URL = os.environ["DATABASE_URL"]
 
@@ -120,6 +120,40 @@ def make_opening(db_session, recruiter):
         return opening
 
     return _make_opening
+
+
+@pytest.fixture()
+def make_application(db_session, recruiter):
+    """
+    Factory fixture: make_application(opening, candidate_name=..., ...) ->
+    Application. Inserts the row directly rather than going through the
+    create endpoint, so it does NOT write a CREATED history entry — use
+    this for setting up state to edit/list/etc, not for testing creation
+    itself.
+    """
+
+    def _make_application(
+        job_opening: JobOpening,
+        candidate_name: str = "Jamie Candidate",
+        candidate_email: str = "jamie@example.com",
+        source: str = "referral",
+        notes: str = "",
+        created_by: User | None = None,
+    ) -> Application:
+        application = Application(
+            job_opening_id=job_opening.id,
+            candidate_name=candidate_name,
+            candidate_email=candidate_email,
+            source=source,
+            notes=notes,
+            created_by_id=(created_by or recruiter).id,
+        )
+        db_session.add(application)
+        db_session.commit()
+        db_session.refresh(application)
+        return application
+
+    return _make_application
 
 
 def auth_headers(client: TestClient, email: str, password: str = "testpassword123") -> dict:

@@ -118,7 +118,7 @@ export default function Openings() {
                   <td className="px-4 py-3">
                     {isRecruiter ? (
                       <Link
-                        to={`/openings/${opening.id}/edit`}
+                        to={`/openings/${opening.id}`}
                         className="font-medium text-brand hover:underline"
                       >
                         {opening.title}
